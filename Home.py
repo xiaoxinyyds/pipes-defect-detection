@@ -70,7 +70,7 @@ CLIENT = InferenceHTTPClient(
 # 推理函数（将结果存入 session_state）
 # ===============================
 def run_inference_and_save(uploaded_img_path):
-    # 显示模型信息（静态说明）
+    # 显示模型信息
     with st.expander("📊 Model Information", expanded=False):
         col1, col2 = st.columns(2)
         col1.write(f"**Model**: {MODEL_ID}")
@@ -78,23 +78,23 @@ def run_inference_and_save(uploaded_img_path):
         col2.write(f"**Inference API**: Roboflow Serverless")
         col2.write(f"**Framework**: YOLOv11-based")
 
-    # 显示原始图像
     st.markdown("### 📸 Original Image")
     st.image(uploaded_img_path, caption="Uploaded Pipeline Image", use_container_width=True)
 
-    # 调用推理 API
     with st.spinner("⏳ Model inferencing, please wait..."):
         result = CLIENT.infer(uploaded_img_path, model_id=MODEL_ID)
-    predictions_json = result  # 直接是 dict，结构为 {"predictions": [...]}
+        # 兼容两种情况：如果 result 有 json 方法则调用，否则直接当作字典
+        if hasattr(result, 'json'):
+            predictions_json = result.json()
+        else:
+            predictions_json = result
 
     # 读取图像用于绘制
     img = cv2.imread(uploaded_img_path)
     inferenced_img = img.copy()
     collected = []
 
-    # 遍历预测结果
     for box in predictions_json.get('predictions', []):
-        # 提取边界框坐标（API 返回中心点+宽高）
         x_center = box['x']
         y_center = box['y']
         width = box['width']
@@ -103,26 +103,23 @@ def run_inference_and_save(uploaded_img_path):
         x1 = x_center + width / 2
         y0 = y_center - height / 2
         y1 = y_center + height / 2
-
         class_name = box['class']
         conf = box['confidence']
 
         start = (int(x0), int(y0))
         end = (int(x1), int(y1))
 
-        # 根据类别选择颜色（可自行扩展）
         if class_name.lower() == 'gas-pipelines':
-            color = (255, 255, 0)   # 青色
+            color = (255, 255, 0)
             alpha = 0.25
             cv2.putText(inferenced_img, f"{class_name} {conf:.2f}", (int(x0)+5, int(y1)-55),
                         cv2.FONT_HERSHEY_SIMPLEX, 2, (255,255,255), 3)
         else:
-            color = (255, 0, 0)     # 蓝色（缺陷类）
+            color = (255, 0, 0)
             alpha = 0.35
             cv2.putText(inferenced_img, f"{class_name} {conf:.2f}", (int(x0)+5, int(y0)-55),
                         cv2.FONT_HERSHEY_SIMPLEX, 2, (0,0,255), 3)
 
-        # 绘制半透明矩形
         overlay = inferenced_img.copy()
         cv2.rectangle(overlay, start, end, color, -1)
         cv2.addWeighted(overlay, alpha, inferenced_img, 1-alpha, 0, inferenced_img)
@@ -136,18 +133,15 @@ def run_inference_and_save(uploaded_img_path):
             "Area (px²)": abs(int(x0)-int(x1)) * abs(int(y0)-int(y1))
         })
 
-    # 保存结果图像
     out_path = "output.jpg"
     cv2.imwrite(out_path, inferenced_img)
 
-    # 存入 session_state
     st.session_state.detection_done = True
     st.session_state.predictions_json = predictions_json
     st.session_state.output_image_path = out_path
     st.session_state.input_image_path = uploaded_img_path
     st.session_state.collected_predictions = collected
 
-    # 显示检测结果
     st.markdown("### 🔍 Defect Detection Results")
     col_img, col_info = st.columns([2, 1])
     with col_img:
@@ -160,7 +154,6 @@ def run_inference_and_save(uploaded_img_path):
         else:
             st.info("No defects detected")
 
-    # 详细数据标签页
     tab1, tab2 = st.tabs(["📋 Data Table", "📄 JSON Format"])
     with tab1:
         st.dataframe(collected, use_container_width=True)
@@ -168,7 +161,7 @@ def run_inference_and_save(uploaded_img_path):
         st.json(predictions_json)
 
 # ===============================
-# PDF 生成函数（全英文，避免编码错误）
+# PDF 生成函数
 # ===============================
 def generate_pdf_from_session():
     if not st.session_state.detection_done:
@@ -232,31 +225,26 @@ with st.sidebar:
 st.title("🛠️ Pipeline Defect Intelligent Detection System")
 st.markdown("> Deep learning based automated pipeline defect recognition tool — Fast, Accurate, Easy-to-use")
 
-# 文件上传表单
 with st.form("detection_form", clear_on_submit=False):
     uploaded_file = st.file_uploader("📂 Upload Pipeline Image", type=["png", "jpg", "jpeg"],
                                      help="Supported formats: JPG, PNG. Recommended resolution ≥ 640x480")
     submitted = st.form_submit_button("🚀 Start Detection", use_container_width=True)
 
 if submitted and uploaded_file is not None:
-    # 保存临时文件
     image = Image.open(uploaded_file)
-    # 如果图像不是 RGB 模式，转换为 RGB（JPEG 不支持透明通道）
     if image.mode != 'RGB':
         image = image.convert('RGB')
     byte_io = io.BytesIO()
     image.save(byte_io, format='JPEG')
-    byte_array = byte_io.getvalue()
     temp_input_path = "input.jpg"
     with open(temp_input_path, "wb") as f:
-        f.write(byte_array)
+        f.write(byte_io.getvalue())
 
     run_inference_and_save(temp_input_path)
 
 elif submitted and uploaded_file is None:
     st.warning("⚠️ Please upload an image first.")
 
-# 如果已经完成检测，则显示 PDF 生成按钮
 if st.session_state.detection_done:
     st.markdown("---")
     if st.button("📄 Generate PDF Report", type="primary"):
