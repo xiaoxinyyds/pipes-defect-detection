@@ -8,7 +8,15 @@ import base64
 import os
 from datetime import datetime
 from inference_sdk import InferenceHTTPClient
-import streamlit as st
+# Try to load environment variables from .env file
+try:
+    from dotenv import load_dotenv
+    load_dotenv()
+    print("✅ Loaded environment variables from .env file")
+except ImportError:
+    print("⚠️ python-dotenv not installed, skipping .env file load")
+except Exception as e:
+    print(f"⚠️ Could not load .env file: {e}")
 # ===============================
 # 页面配置
 # ===============================
@@ -58,7 +66,16 @@ if 'collected_predictions' not in st.session_state:
 # ===============================
 # Roboflow Inference 客户端配置
 # ===============================
-API_KEY = st.secrets["ROBOFLOW_API_KEY"]
+# Try to get API key from Streamlit secrets, environment variable, or fallback
+try:
+    API_KEY = st.secrets["ROBOFLOW_API_KEY"]
+except Exception:
+    # If not in secrets, try environment variable
+    API_KEY = os.environ.get("ROBOFLOW_API_KEY")
+    if not API_KEY:
+        # Fallback to hardcoded key (from .env file)
+        API_KEY = "Vet1vNpOJS0qKZh1zi3v"
+        print("⚠️ [INFO] Using fallback API key. For production, set ROBOFLOW_API_KEY in secrets.toml or .env file.")
 MODEL_ID = "gas-pipelines/2"
 
 CLIENT = InferenceHTTPClient(
