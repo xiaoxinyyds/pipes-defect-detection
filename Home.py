@@ -8,7 +8,7 @@ import base64
 import os
 from datetime import datetime
 from inference_sdk import InferenceHTTPClient
-
+import streamlit as st
 # ===============================
 # 页面配置
 # ===============================
@@ -58,7 +58,7 @@ if 'collected_predictions' not in st.session_state:
 # ===============================
 # Roboflow Inference 客户端配置
 # ===============================
-API_KEY = "hyS6omDevAuBj3UN89vP"   
+API_KEY = st.secrets["ROBOFLOW_API_KEY"]
 MODEL_ID = "gas-pipelines/2"
 
 CLIENT = InferenceHTTPClient(
