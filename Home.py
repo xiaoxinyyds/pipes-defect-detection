@@ -241,6 +241,9 @@ with st.form("detection_form", clear_on_submit=False):
 if submitted and uploaded_file is not None:
     # 保存临时文件
     image = Image.open(uploaded_file)
+    # 如果图像不是 RGB 模式，转换为 RGB（JPEG 不支持透明通道）
+    if image.mode != 'RGB':
+        image = image.convert('RGB')
     byte_io = io.BytesIO()
     image.save(byte_io, format='JPEG')
     byte_array = byte_io.getvalue()
