@@ -74,7 +74,7 @@ except Exception:
     API_KEY = os.environ.get("ROBOFLOW_API_KEY")
     if not API_KEY:
         # Fallback to hardcoded key (from .env file)
-        API_KEY = "Vet1vNpOJS0qKZh1zi3v"
+        API_KEY = "u8UOsCouQTPV12lxGfny"
         print("⚠️ [INFO] Using fallback API key. For production, set ROBOFLOW_API_KEY in secrets.toml or .env file.")
 MODEL_ID = "gas-pipelines/2"
 
